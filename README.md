@@ -1,1 +1,1 @@
-# learn_ml_in_a_hard_way
+# Learn Machine Learning in a hard way
