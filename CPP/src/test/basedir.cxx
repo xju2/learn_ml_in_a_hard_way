@@ -2,6 +2,7 @@
 #include <iostream>
 #include <glob.h>
 #include <vector>
+#include <algorithm>
 
 struct MatchPathSeparator
   {

@@ -13,11 +13,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(CMAKE_MACOSX_RPATH 1)
 
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-  add_compile_options(-g)
-else()
-  add_compile_options(-O4)
-endif()
+#if(CMAKE_BUILD_TYPE MATCHES Debug)
+#  add_compile_options(-g)
+#else()
+#  add_compile_options(-O4)
+#endif()
 
 # cpp compile options
 add_compile_options(-Wfatal-errors)
