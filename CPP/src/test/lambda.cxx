@@ -45,4 +45,5 @@ int main()
 	};
 	auto add5_lambda = adder(5);
 	std::cout <<  add5_lambda(5) << std::endl;
+	return 0;
 }

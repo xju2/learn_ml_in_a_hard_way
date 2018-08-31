@@ -1,7 +1,7 @@
 # some excutables
 file(GLOB tools *.cxx)
 foreach(target ${tools})
-	message(${target})
+	# message(${target})
 	get_filename_component(execname ${target} NAME_WE)
 	get_filename_component(srcfile ${target} NAME)
 	add_executable(${execname} ${srcfile})
