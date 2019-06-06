@@ -34,7 +34,6 @@ if __name__ == "__main__":
     evt_ids = np.linspace(0, nentries-1, nentries, dtype=np.long)
 
     evt_ids = [x.tolist() for x in np.array_split(evt_ids, n_workers)]
-    print(len(evt_ids))
     pool = mp.Pool(n_workers)
     pp_func=partial(process_event, file_name=file_name)
     pool.map(pp_func, evt_ids)
