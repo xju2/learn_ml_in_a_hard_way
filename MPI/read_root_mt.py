@@ -16,8 +16,8 @@ def process_event(evt_id_list, file_name):
     file_.Close()
 
 if __name__ == "__main__":
-    file_name = '/Volumes/Lion/Documents/Data/ForTest/ggf.root'
-    nentries = 10
+    file_name = '/global/homes/x/xju/project/xju/gnn_examples/H4l_ggF_vs_VBF/input/ggf.root'
+    nentries = 8
     print("Total Entries: {}".format(nentries))
 
     try:
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     import multiprocessing as mp
     import numpy as np
 
-    evt_ids = np.linspace(0, nentries-1, nentries, dtype=long)
+    evt_ids = np.linspace(0, nentries-1, nentries, dtype=np.long)
 
     evt_ids = [x.tolist() for x in np.array_split(evt_ids, n_workers)]
     print(len(evt_ids))
