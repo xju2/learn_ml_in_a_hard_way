@@ -8,10 +8,10 @@ grid_pack_file = '/global/homes/x/xju/atlas/testarea/mg5_py8_dir/submit/000000/G
 evts_per_thread = 2000
 
 def process_event(run_name):
-    #print(type(run_name))
-    cmd = ['./run.sh', run_name]
+    print(run_name)
+    #cmd = ['./run.sh', run_name]
     #cmd = ['echo', "running "+run_name]
-    subprocess.call(cmd, shell=True)
+    #subprocess.call(cmd, shell=True)
 
 
 if __name__ == "__main__":

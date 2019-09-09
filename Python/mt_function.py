@@ -2,36 +2,38 @@
 """
 Use multi-threads to do the same job on different dataset
 """
-
 import os
+import multiprocessing as mp
 import threading
-import time
+import numpy as np
+
 def add_abc(a, b, c):
-    res = a+b+c
-    print("PID {}, thread {} get {}".format(os.getpid(), threading.current_thread(), res))
-    time.sleep(3)
-    print("{} done".format(threading.current_thread()))
-    #return a+b+c
+    return a+b+c
 
 if __name__ == "__main__":
 
-    A = [1, 2, 3, 4]
-    B = [2, 2, 2, 2]
-    C = [1, 1, 1, 1]
-    max_threads = 3
+    A = [1, 2, 3, 4]  # 10
+    B = [2, 2, 2, 2]  # 8
+    C = [1, 1, 1, 1]  # 4
+
+    ### it does not work..
+    # np.random.seed(23)
+    # A = np.random.random_integers(1, 100, 1000000)
+    # B = np.random.random_integers(1, 100, 1000000)
+    # C = np.random.random_integers(1, 100, 1000000)
+
+    max_threads = 4
     n_threads = 0
     threads = []
-    while n_threads < len(A):
-        if threading.active_count() < max_threads:
-            x = threading.Thread(target=add_abc, args=(A[n_threads], B[n_threads], C[n_threads]))
-            x.start()
-            n_threads += 1
-        else:
-            time.sleep(3)
+    total_sum = 0  # 10+8+4=22
 
-    print(threading.active_count())
-    #for thread in threads:
-    #    thread.start()
+    mp.set_start_method('spawn')
+    que = mp.Queue()
 
-    #for thread in threads:
-    #   thread.join()
+    pool = mp.Pool(max_threads)
+    total_sum = 0
+    for n_threads in range(len(A)):
+        res = pool.apply_async(add_abc, args=(A[n_threads], B[n_threads], C[n_threads]) )
+        total_sum += res.get()
+
+    print("total sum is: {}".format(total_sum))
