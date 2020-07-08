@@ -1,0 +1,59 @@
+files:
+    -  /global/homes/x/xju/atlas/examples/numpy_analysis/nonpointingphoton/user.ssantpur.18874302.size4p1GB.root
+
+outnames:
+    - new_output_test.root
+    
+tree_name: output
+weight_name: wt
+
+branches:
+    - el_eta1
+    - el_eta2
+    - el_pt1
+    - mu_pt1
+    - mu_eta1
+    - el_pt2
+    - mu_pt2
+    - mu_eta2
+    - ph_eta1
+    - ph_pt1
+    - ph_eta2
+    - ph_pt2
+    - ph_t1
+    - ph_t2
+    - el_t1
+    - el_t2
+    - m_met
+    - wt
+    - ph_calo_z1
+    - ph_calo_z2
+    - PV_z
+
+selections:
+    - ((el_pt1>27.0 && (fabs(el_eta1)<1.37 || (fabs(el_eta1)>1.52 && fabs(el_eta1)<2.47))) || (mu_pt1>27.0 && fabs(mu_eta1)<2.7) || (el_pt2>27.0 && (fabs(el_eta2)<1.37 || (fabs(el_eta2)>1.52 && fabs(el_eta2)<2.47))) || (mu_pt2>27.0 && fabs(mu_eta2)<2.7)) && ((ph_pt1>10.0 && fabs(ph_eta1)<1.37) || (ph_pt2>10.0 && fabs(ph_eta2)<1.37)) && m_met<20.0
+
+hists: # ['hist-type', 'branch-name', low, high, nbins, xlabel, ylabel]
+    - [TH1F, m_met, 0, 100, 5, 'MET [GeV]', 'Nevents']
+    - [TH1F, ph_pt1, 0, 1000, 100, 'Leading photon p_{T} [GeV]', 'Nevents']
+    - [TH1F, ph_pt2, 0, 1000, 100, 'Subleading photon p_{T} [GeV]', 'Nevents']
+    - [TH1F, ph_eta1, -3.0, 3.0, 120, 'Leading photon eta', 'Nevents']
+    - [TH1F, ph_eta2, -3.0, 3.0, 120, 'Subleading photon eta', 'Nevents']
+    - [TH1F, el_pt1, 0, 1000, 100, 'Leading electron p_{T} [GeV]', 'Nevents']
+    - [TH1F, el_pt2, 0, 1000, 100, 'Subleading electron p_{T} [GeV]', 'Nevents']
+    - [TH1F, el_eta1, -3.0, 3.0, 120, 'Leading electron eta', 'Nevents']
+    - [TH1F, el_eta2, -3.0, 3.0, 120, 'Subleading electron eta', 'Nevents']
+    - [TH1F, mu_pt1, 0, 1000, 100, 'Leading muon p_{T} [GeV]', 'Nevents']
+    - [TH1F, mu_pt2, 0, 1000, 100, 'Subleading muon p_{T} [GeV]', 'Nevents']
+    - [TH1F, mu_eta1, -3.0, 3.0, 120, 'Leading muon eta', 'Nevents']
+    - [TH1F, mu_eta2, -3.0, 3.0, 120, 'Subleading muon eta', 'Nevents']
+    - [TH1F, ph_t1, -20, 20, 400, 'Leading photon timing [ns]', 'Nevents']
+    - [TH1F, ph_t2, -20, 20, 400, 'Subleading photon timing [ns]', 'Nevents']
+    - [TH1F, el_t1, -20, 20, 400, 'Leading electron timing [ns]', 'Nevents']
+    - [TH1F, el_t2, -20, 20, 400, 'Subleading electron timing [ns]', 'Nevents']
+    - [TH1F, ph_calo_z1, -2000, 2000, 400, 'Leading photon calo pointing [mm]', 'Nevents']
+    - [TH1F, ph_calo_z2, -2000, 2000, 400, 'Subleading photon calo pointing [mm]', 'Nevents']
+    # ['hist-type', 'branch-name1', 'branch-name2', lowx, highx, nbinsx,lowy, highy, nbinsy, xlabel, ylabel]
+    - [TH2F, ph_t1, ph_calo_z1, -20, 20, 400,-2000, 2000, 400, 'Photon timing [ns]', 'Photon calo pointing [mm]']
+
+    

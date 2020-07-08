@@ -2,6 +2,8 @@
 #include <TTree.h>
 #include <iostream>
 #include <unistd.h>
+#include <chrono>
+#include <ROOT/RDataFrame.hxx>
 
 using namespace std;
 
@@ -53,30 +55,56 @@ void copytree(const char* origin_file, const char* bdt_file, const char* output_
    newtree->AutoSave();
 }
 
+void copytree2(const char* origin_file, 
+		const char* bdt_file, const char* output_file, 
+		const char* tree_name, int nThreads)
+{
+	ROOT::EnableImplicitMT(nThreads); // Tell ROOT you want to go parallel
+
+	TFile oldfile(origin_file, "READ");
+	TTree *oldtree;
+	oldfile.GetObject(tree_name, oldtree);
+	
+	TFile bdtFile(bdt_file, "READ");
+	TTree *bdttree;
+	bdtFile.GetObject(tree_name, bdttree);
+
+	oldtree->AddFriend(bdttree, "BDT");
+	ROOT::RDataFrame data(*oldtree);
+	data.Snapshot(tree_name, output_file);
+}
+
 int main(int argc, char** argv){
 	bool help = false;
-	bool quiet = false;
+	int method = 0;
 	string tree_name = "DiMuonNtuple";
 
 	int opt;
-	while ((opt == getopt(argc, argv, "ht:")) != -1) {
+	while ((opt = getopt(argc, argv, "ht:m:")) != -1) {
 		switch (opt) {
 		case 't':
 			tree_name = optarg;
 			break;
+		case 'm':
+			method = atoi(optarg);
+			break;
 		case 'h':
 			help = true;
 		default: /* '?' */
-			fprintf(stderr, "Usage: %s [-h] [-t TREENAME] file0 file1 outfile_name",
+			fprintf(stderr, "Usage: %s [-h] [-t TREENAME] [-m METHOD] file0 file1 outfile_name\n",
 					argv[0]);
 			if (help) {
 				printf("		-t T : tree name. Default is \"DiMuonNtuple\"\n");
+				printf("		-m M : method. Default is 0 \n");
+				printf("			   0: TTree\n");
+				printf("			   1: RDataFrame\n");
+				printf("			   N: RDataFrame N Threads\n");
 			}
 			exit(EXIT_FAILURE);
 		}
 	}
 	if(argc - optind !=3){
-		fprintf(stderr, "Usage: %s [-h] [-t TREENAME] file0 file1 outfile_name",
+		fprintf(stderr, "Usage: %s [-h] [-t TREENAME] file0 file1 outfile_name\n",
 				argv[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -84,7 +112,17 @@ int main(int argc, char** argv){
 	string file0(argv[optind]);
 	string file1(argv[optind+1]);
 	string file2(argv[optind+2]);
-	copytree(file0.c_str(), file1.c_str(), file2.c_str(), tree_name.c_str());
+
+	auto start = std::chrono::system_clock::now();
+	if(method == 0) {
+		copytree(file0.c_str(), file1.c_str(), file2.c_str(), tree_name.c_str());
+	} else {
+		copytree2(file0.c_str(), file1.c_str(), file2.c_str(), tree_name.c_str(), method);
+	}
+
+	auto end = std::chrono::system_clock::now();
+	std::chrono::duration<double> diff = end-start;
+	printf("Time to copy %.2f seconds\n", diff.count());
 
 	return 0;
 }

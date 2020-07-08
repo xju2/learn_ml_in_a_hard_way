@@ -12,15 +12,16 @@ def add_abc(a, b, c):
 
 if __name__ == "__main__":
 
-    A = [1, 2, 3, 4]  # 10
-    B = [2, 2, 2, 2]  # 8
-    C = [1, 1, 1, 1]  # 4
+    #A = [1, 2, 3, 4]  # 10
+    #B = [2, 2, 2, 2]  # 8
+    #C = [1, 1, 1, 1]  # 4
 
     ### it does not work..
-    # np.random.seed(23)
-    # A = np.random.random_integers(1, 100, 1000000)
-    # B = np.random.random_integers(1, 100, 1000000)
-    # C = np.random.random_integers(1, 100, 1000000)
+    np.random.seed(23)
+    n_evts = 100000
+    A = np.random.random_integers(1, 100, n_evts)
+    B = np.random.random_integers(1, 100, n_evts)
+    C = np.random.random_integers(1, 100, n_evts)
 
     max_threads = 4
     n_threads = 0

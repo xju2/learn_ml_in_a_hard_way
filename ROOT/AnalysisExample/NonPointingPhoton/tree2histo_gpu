@@ -1,0 +1,234 @@
+#!/usr/bin/env python
+"""
+Read a list of ROOT files and produce histograms
+Specifically tuned...
+"""
+from __future__ import print_function
+from __future__ import division
+
+import ROOT
+from root_numpy import tree2array, fill_hist
+import numpy as np
+
+import multiprocessing as mp
+import glob
+
+n_workers = 1
+def read_partial_events(
+    file_name, tree_name, branches, selections, start, stop):
+
+    chain = ROOT.TChain(tree_name, tree_name)
+    chain.Add(file_name)
+    nentries = chain.GetEntries()
+
+    event_info = tree2array(chain,
+                            branches=branches,
+                            selection=selections,
+                            start=start,
+                            stop=stop)
+    return event_info
+
+def read_events(chain, branches, selections, start, stop):
+    event_info = tree2array(chain,
+                            branches=branches,
+                            selection=selections,
+                            start=start,
+                            stop=stop)
+    return event_info
+
+def read_file(file_name, tree_name, branches, selections):
+    chain = ROOT.TChain(tree_name, tree_name)
+    chain.Add(file_name)
+    nentries = chain.GetEntries()
+    print("{} contains {:,} events".format(file_name, nentries))
+
+    if n_workers > 1 and nentries > 2000000:
+        # split the jobs
+        # using multiple workers does not help
+        # when each worker processes < ~2M events
+        even = nentries//n_workers
+        event_info_list = []
+
+        pool = mp.Pool(processes=n_workers)
+        ithread = 0
+        threads = []
+        while ithread < n_workers-1:
+            start = even*ithread
+            stop = even*(1+ithread)
+            print("start {} and stop {}".format(start, stop))
+            x = pool.apply_async(read_partial_events,
+                                 args=(file_name, tree_name,
+                                       branches, selections,
+                                       start, stop))
+            threads.append(x)
+            ithread += 1
+        # another thread to do the rest
+        print("start {} to the end".format(start))
+        x = pool.apply_async(read_partial_events,
+                             args=(file_name, tree_name,
+                                   branches, selections,
+                                   start, None))
+        threads.append(x)
+
+        event_info = np.concatenate([x.get() for x in threads])
+    else:
+        event_info = read_events(chain,
+                                 branches, selections,
+                                 None, None)
+
+    return event_info
+
+
+def make_hists(event_info, hist_opts, outname, weight_name=None):
+    outfile = ROOT.TFile.Open(outname, 'recreate')
+    histograms = []
+
+    for hist_opt in hist_opts:
+        #print(hist_opt)
+        if(len(hist_opt) < 5):
+            print(hist_opt, "not enough info")
+            continue
+
+        h_type, h_name, h_low, h_high, h_nbins = hist_opt[:5]
+        if len(hist_opt) > 5:
+            h_xlabel, h_ylabel = hist_opt[5:7]
+        else:
+            h_xlabel, h_ylabel = None, None
+
+        if 'TH1' in h_type:
+            h1 = getattr(ROOT, h_type)(h_name, h_name, h_nbins, h_low, h_high)
+            if h_xlabel:
+                h1.SetXTitle(h_xlabel)
+                h1.SetYTitle(h_ylabel)
+        else:
+            print("Not implemented")
+            continue
+
+        if weight_name:
+            fill_hist(h1, event_info[h_name], weights=event_info[weight_name])
+        else:
+            fill_hist(h1, event_info[h_name])
+
+        histograms.append(h1)
+
+    for hist in histograms:
+        hist.Write()
+
+    outfile.Close()
+
+if __name__ == "__main__":
+    import argparse
+    import os
+    import yaml
+    import time
+
+    parser = argparse.ArgumentParser(description='Compare two Hmumu Ntuples')
+    add_arg = parser.add_argument
+    add_arg('config', type=str, help='config file')
+    add_arg('-w', '--workers', type=int, help='number of workers', default=1)
+    add_arg('-u', '--use_gpu', action='store_true', help='use GPU')
+
+    args = parser.parse_args()
+    n_workers = args.workers
+    use_gpu = args.use_gpu
+    print("Workers empolyed: {}".format(n_workers))
+    if use_gpu:
+        import cupy as cp
+        print("Using GPU")
+
+    with open(args.config) as f:
+        if hasattr(yaml, "FullLoader"):
+            config = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            config = yaml.load(f)
+
+    branches = config['branches']
+    files = config['files']
+    outnames = config['outnames']
+    tree_name = config['tree_name']
+    weight_name = config['weight_name']
+    selections = config['selections']
+    hist_opts = config['hists']
+
+    for ise,selection in enumerate(selections):
+        ## process each file
+        for file_name, outname in zip(files, outnames):
+            print("Processing: {}".format(file_name))
+            outname = "sel{}_{}".format(ise,outname)
+            print("Output Name: {}".format(outname))
+            t_start = time.time()
+            event_info = read_file(file_name, tree_name, branches, None)
+            t_read = time.time()
+            print("Takes {:.1f} seconds to read {:,} events with {} branches".format(t_read - t_start, event_info.shape[0], len(branches)))
+
+            if use_gpu:
+                mempool = cp.get_default_memory_pool()
+                pinned_mempool = cp.get_default_pinned_memory_pool()
+                ## off load all branches to GPU
+                arrays_dict = {}
+                for ibranch,branch in enumerate(branches[:17]):
+                    print("[{}] off loading: {}".format(ibranch, branch))
+                    garray = cp.asarray(event_info[branch], dtype=np.float32)
+                    #print("{} has {:,} bytes".format(branch, garray.nbytes))
+                    arrays_dict[branch] = garray
+
+                print("{:,} bytes memory pool is used {:,} bytes".format(mempool.total_bytes(),
+                                                                         mempool.used_bytes()))
+                print("pinned memory pool {} free blocks".format(pinned_mempool.n_free_blocks()))
+            else:
+                arrays_dict = event_info
+
+
+            t_data_transfer = time.time()
+            print("Takes {:.1f} seconds to transfer {} branches of {:,} events from CPU to GPU".format(
+                t_data_transfer - t_read,
+                len(branches),
+                event_info.shape[0]))
+
+            # now perform event selections
+            eta1_abs = abs(arrays_dict['el_eta1'])
+            eta1_cut = (eta1_abs  < 1.37) | ((eta1_abs > 1.52) &  (eta1_abs < 2.47))
+
+            eta2_abs = abs(arrays_dict['el_eta2'])
+            eta2_cut = (eta2_abs  < 1.37) | ((eta2_abs > 1.52) &  (eta2_abs < 2.47))
+
+            ph_eta1_abs = abs(arrays_dict['ph_eta1'])
+            ph_eta1_cut = (ph_eta1_abs  < 1.37) | ((ph_eta1_abs > 1.52) &  (ph_eta1_abs < 2.47))
+
+            ph_eta2_abs = abs(arrays_dict['ph_eta2'])
+            ph_eta2_cut = (ph_eta2_abs  < 1.37) | ((ph_eta2_abs > 1.52) &  (ph_eta2_abs < 2.47))
+
+            opt1 = ((arrays_dict['el_pt1'] > 27) & eta1_cut)
+            opt2 = ((arrays_dict['mu_pt1'] > 27) & (abs(arrays_dict['mu_eta1']) < 2.7))
+            opt3 = ((arrays_dict['el_pt2'] > 27) & eta2_cut)
+            opt4 = ((arrays_dict['mu_pt2'] > 27) & (abs(arrays_dict['mu_eta2']) < 2.7))
+            opt5 = ((arrays_dict['ph_pt1'] > 10) & ph_eta1_cut)
+            opt6 = ((arrays_dict['ph_pt2'] > 10) & ph_eta2_cut)
+            opt7 = arrays_dict['m_met'] < 20
+
+            final = (opt1 | opt2 | opt3 | opt4) & (opt5 | opt6) & opt7
+            t_selections = time.time()
+            print("Takes {:.1f} seconds to perform all selections".format(t_selections-t_data_transfer))
+            if use_gpu:
+                # now free all variables for selections
+                for key in arrays_dict.keys():
+                    if "m_met" not in key:
+                        arrays_dict[key] = None
+
+                print("{:,} bytes memory pool is used {:,} bytes".format(mempool.total_bytes(),
+                                                                         mempool.used_bytes()))
+                print("pinned memory pool {} free blocks".format(pinned_mempool.n_free_blocks()))
+                branch = weight_name
+                arrays_dict[branch] = cp.asarray(event_info[branch], dtype=np.float32)
+
+            # now make a plot
+            h1 = ROOT.TH1F("m_met", "m_met", 5, 0, 100)
+            if use_gpu:
+                fill_hist(h1, arrays_dict["m_met"].get(), weights=arrays_dict[weight_name].get())
+            else:
+                fill_hist(h1, arrays_dict["m_met"], weights=arrays_dict[weight_name])
+
+            t_hist = time.time()
+            print("Takes {:.1f} seconds to make a histogram".format(t_hist-t_selections))
+
+            #make_hists(event_info, hist_opts, outname, weight_name=weight_name)

@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+"""
+Read a list of ROOT files and produce histograms
+Specifically tuned...
+"""
+from __future__ import print_function
+from __future__ import division
+
+import numpy as np
+import uproot
+import glob
+
+import matplotlib.pyplot as plt
+
+def plot_hist(array, bins, range, outname, weights=None):
+    counts, edges = np.histogram(array, bins=bins, range=range)
+    plt.step(x=edges, y=np.append(counts, 0), where='post')
+    plt.savefig(outname)
+    plt.clf()
+
+def make_hists(arrays_dict):
+    eta1_abs = abs(arrays_dict['el_eta1'])
+    eta1_cut = (eta1_abs  < 1.37) | ((eta1_abs > 1.52) &  (eta1_abs < 2.47))
+
+    eta2_abs = abs(arrays_dict['el_eta2'])
+    eta2_cut = (eta2_abs  < 1.37) | ((eta2_abs > 1.52) &  (eta2_abs < 2.47))
+
+    ph_eta1_abs = abs(arrays_dict['ph_eta1'])
+    ph_eta1_cut = (ph_eta1_abs  < 1.37) | ((ph_eta1_abs > 1.52) &  (ph_eta1_abs < 2.47))
+
+    ph_eta2_abs = abs(arrays_dict['ph_eta2'])
+    ph_eta2_cut = (ph_eta2_abs  < 1.37) | ((ph_eta2_abs > 1.52) &  (ph_eta2_abs < 2.47))
+
+    opt1 = ((arrays_dict['el_pt1'] > 27) & eta1_cut)
+    opt2 = ((arrays_dict['mu_pt1'] > 27) & (abs(arrays_dict['mu_eta1']) < 2.7))
+    opt3 = ((arrays_dict['el_pt2'] > 27) & eta2_cut)
+    opt4 = ((arrays_dict['mu_pt2'] > 27) & (abs(arrays_dict['mu_eta2']) < 2.7))
+    opt5 = ((arrays_dict['ph_pt1'] > 10) & ph_eta1_cut)
+    opt6 = ((arrays_dict['ph_pt2'] > 10) & ph_eta2_cut)
+    opt7 = arrays_dict['m_met'] < 20
+
+    final = (opt1 | opt2 | opt3 | opt4) & (opt5 | opt6) & opt7
+    return arrays_dict['wt'][final], arrays_dict['m_met'][final]
+
+
+if __name__ == "__main__":
+    import argparse
+    import os
+    import yaml
+    import time
+
+
+    parser = argparse.ArgumentParser(description='Compare two Hmumu Ntuples')
+    add_arg = parser.add_argument
+    add_arg('config', type=str, help='config file')
+    add_arg('-w', '--workers', type=int, help='number of workers', default=1)
+    add_arg('-e', '--entrysteps', type=int, help='size of entry', default=1000)
+
+    args = parser.parse_args()
+    n_workers = args.workers
+    entrysteps = args.entrysteps
+    print("Workers empolyed: {}".format(n_workers))
+    # ray.init(num_cpus=n_workers, ignore_reinit_error=True)
+
+    with open(args.config) as f:
+        if hasattr(yaml, "FullLoader"):
+            config = yaml.load(f, Loader=yaml.FullLoader)
+        else:
+            config = yaml.load(f)
+
+    branches = config['branches']
+    files = config['files']
+    outnames = config['outnames']
+    tree_name = config['tree_name']
+    weight_name = config['weight_name']
+    selections = config['selections']
+    hist_opts = config['hists']
+
+
+    for file_name in files:
+        print("File name: {}".format(file_name))
+        all_results = []
+        for path, file, start, stop, arrays in uproot.iterate([file_name], tree_name, branches,
+                                                              entrysteps='{} MB'.format(entrysteps), reportpath=True, reportfile=True, reportentries=True, namedecode='utf-8'):
+            all_results.append(make_hists(arrays))
+
+        weight_array = np.concatenate([x[0] for x in all_results], axis=0)
+        met_array = np.concatenate([x[1] for x in all_results], axis=0)
+
+        plot_hist(met_array, bins=5, range=(0, 100),
+                  outname="met.png", weights=weight_array)
+
