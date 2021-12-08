@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.10) ## a random version...
 
 project (HardTBB)
 
@@ -21,10 +21,6 @@ endif()
 add_compile_options(-Wfatal-errors -Wno-deprecated -std=c++17 -Wall -fPIC -pedantic)
 # add_compile_options(-Wc++11-extensions)
 # add_compile_options(-Wgnu-zero-variadic-macro-arguments)
-
-
-# set(CMAKE_MACOSX_RPATH 1)
-# Source code
 
 # FIXME: if you are using the normal version of TBB, it has a config file so
 #   remove cmake/FindTBB.cmake and add CONFIG to the next line.
