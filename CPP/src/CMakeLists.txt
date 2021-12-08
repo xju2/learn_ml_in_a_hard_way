@@ -12,6 +12,6 @@ add_compile_options(-std=c++17)
 add_compile_options(-Wall)
 add_compile_options(-fPIC)
 add_compile_options(-pedantic)
-add_compile_options(-Wgnu-zero-variadic-macro-arguments)
+# add_compile_options(-Wgnu-zero-variadic-macro-arguments)
 
 add_subdirectory(test)

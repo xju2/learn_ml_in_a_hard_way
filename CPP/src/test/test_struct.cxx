@@ -1,4 +1,4 @@
-
+#include <string>
 #include <vector>
 #include <iostream>
 
@@ -17,6 +17,23 @@ inline std::ostream& operator<<(std::ostream& ost, PointConfig const& pc)
 	  return ost;
 }
 
+class ExaTrkXTrackFinding {
+  public:
+    struct Config {
+		std::string inputMLModuleDir;
+	};
+
+	ExaTrkXTrackFinding(Config config): m_cfg(std::move(config))
+	{}
+
+	void operator()() {
+		std::cout <<"configuration directory: " << m_cfg.inputMLModuleDir << std::endl;
+	}
+
+  private:
+	Config m_cfg;
+};
+
 
 int main() {
 	size_t pid  = 11;
@@ -29,5 +46,12 @@ int main() {
 
 
 	std::cout << a << std::endl;
+
+	ExaTrkXTrackFinding::Config config;
+	config.inputMLModuleDir = "/home/xju/ocean/code/Tracking-ML-Exa.TrkX/Pipelines/TrackML_Example/onnx_models";
+
+	ExaTrkXTrackFinding exatrkx(config);
+	exatrkx();
+
 	return 0;
 }
