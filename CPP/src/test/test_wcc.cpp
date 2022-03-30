@@ -27,9 +27,8 @@ int main()
     std::vector<int> component (boost::num_vertices (g));
     size_t num_components = boost::connected_components (g, &component[0]);
     std::cout << "Number of components: " << num_components << std::endl;
-    // for (size_t i = 0; i < boost::num_vertices (c); ++i){
-    //   if (component[i] == 0)
-    //     std::cout << i << " ";
-    // }
+    for (size_t i = 0; i < v; ++i){
+        std::cout << "Node[" << i << "] = " << component[i] << std::endl;
+    }
     return 0;
 }
