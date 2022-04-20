@@ -8,6 +8,6 @@ foreach(target ${tools})
 	add_executable(${execname} ${srcfile})
 
 	set_target_properties(${execname} PROPERTIES LINKER_LANGUAGE CXX)
-	target_link_libraries(${execname} PUBLIC pthread tbb)
-	
+	target_link_libraries(${execname} PUBLIC pthread TBB::tbb)
+
 endforeach()
