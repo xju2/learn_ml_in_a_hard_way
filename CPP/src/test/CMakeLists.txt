@@ -15,3 +15,10 @@ message(STATUS "Boost Libaries: ${Boost_LIBRARIES}")
 add_executable(test_wcc test_wcc.cpp)
 set_target_properties(test_wcc PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(test_wcc PUBLIC Boost::graph)
+
+
+find_package(Eigen3 REQUIRED NO_MODULE)
+message(STATUS "Eigen Libaries: ${Eigen3_LIBRARIES}")
+add_executable(test_eigen test_eigen.cpp)
+set_target_properties(test_eigen PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(test_eigen PUBLIC Eigen3::Eigen)
