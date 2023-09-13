@@ -1,8 +1,9 @@
+# Setup
+`start_hep_container`
 
 # Understanding Value Categories
 
 ![Value Categories](value_categories.png)
-
 
 In C++, an expression contains a *type* and a *value*. 
 There are two kinds of values:
