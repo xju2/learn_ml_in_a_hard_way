@@ -10,12 +10,13 @@ int main () {
     // set up random number seed
     srand(0);
     std::vector<int> idx(num_sp);
-    std::vector<float> dists(num_sp);
+    std::vector<float> dists;
+    dists.reserve(num_sp);
     for (int j = 0; j < 3; j++){
         dists.clear();
         for (int i = 0; i < num_sp; i++) {
             float dist = (float) rand() / RAND_MAX;
-            dists[i] = dist;
+            dists.push_back(dist);
         }
         std::iota(idx.begin(), idx.end(), 0);
         std::sort(idx.begin(), idx.end(), [&dists](int i1, int i2) {return dists[i1] < dists[i2];});
