@@ -52,6 +52,16 @@ def check():
     try:
         import torch_scatter
         print("torch_scatter: ", torch_scatter.__version__)
+        import torch
+        from torch_scatter import scatter_max
+
+        src = torch.tensor([[2, 0, 1, 4, 3], [0, 2, 1, 3, 4]])
+        index = torch.tensor([[4, 5, 4, 2, 3], [0, 0, 2, 2, 1]])
+
+        out, argmax = scatter_max(src, index, dim=-1)
+        print("out:", out)
+        print("argmax:", argmax)
+        
     except ImportError:
         print("torch_scatter not found")
 
