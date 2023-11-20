@@ -21,6 +21,7 @@ def check():
         print("torch cuda device count: ", torch.cuda.device_count())
         print("torch cuda device name: ", torch.cuda.get_device_name())
         print("torch cuda device capability: ", torch.cuda.get_device_capability())
+        print("torch distributed     :", torch.distributed.is_available())
     except ImportError:
         print("torch not found")
 
