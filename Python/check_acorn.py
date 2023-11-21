@@ -55,14 +55,16 @@ def check():
         print("torch_scatter: ", torch_scatter.__version__)
         import torch
         from torch_scatter import scatter_max
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        src = torch.tensor([[2, 0, 1, 4, 3], [0, 2, 1, 3, 4]])
-        index = torch.tensor([[4, 5, 4, 2, 3], [0, 0, 2, 2, 1]])
+        print(f"Test scatter_max in {device}.")
+        src = torch.tensor([[2, 0, 1, 4, 3], [0, 2, 1, 3, 4]]).to(device)
+        index = torch.tensor([[4, 5, 4, 2, 3], [0, 0, 2, 2, 1]]).to(device)
 
         out, argmax = scatter_max(src, index, dim=-1)
         print("out:", out)
         print("argmax:", argmax)
-        
+
     except ImportError:
         print("torch_scatter not found")
 
