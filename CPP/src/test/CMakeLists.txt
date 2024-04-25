@@ -6,7 +6,9 @@ foreach(target ${tools})
 	get_filename_component(srcfile ${target} NAME)
 	add_executable(${execname} ${srcfile})
 	#add_dependencies(${execname})
-	set_target_properties(${execname} PROPERTIES LINKER_LANGUAGE CXX)
+	set_target_properties(${execname} PROPERTIES
+		LINKER_LANGUAGE CXX
+		CXX_STANDARD 20)
 	target_link_libraries(${execname} PUBLIC pthread)
 endforeach()
 
