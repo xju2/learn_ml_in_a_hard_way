@@ -2,8 +2,6 @@
 """Example of using tqdm with concurrent.futures.ProcessPoolExecutor."""
 
 import concurrent.futures
-import math
-import os
 import time
 from tqdm import tqdm
 
