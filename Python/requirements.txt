@@ -1,0 +1,7 @@
+jupyterlab
+matplotlib
+requests
+h5py
+pandas
+tables
+tqdm
