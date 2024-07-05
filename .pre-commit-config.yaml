@@ -1,0 +1,52 @@
+ci:
+  autoupdate_commit_msg: "chore: [pre-commit.ci] pre-commit autoupdate"
+  autoupdate_schedule: quarterly
+
+repos:
+
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    - id: check-added-large-files
+    - id: check-case-conflict
+    - id: check-merge-conflict
+    - id: check-symlinks
+    - id: check-json
+    - id: check-yaml
+    - id: check-toml
+    - id: check-xml
+    - id: debug-statements
+    - id: end-of-file-fixer
+    - id: mixed-line-ending
+    - id: trailing-whitespace
+
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v3.15.2
+    hooks:
+    -   id: pyupgrade
+
+-   repo: https://github.com/psf/black
+    rev: 24.3.0
+    hooks:
+    - id: black-jupyter
+
+-   repo: https://github.com/codespell-project/codespell
+    rev: v2.2.6
+    hooks:
+    - id: codespell
+      files: ^.*\.(py|md|rst)$
+      args: ["--write-changes", "--ignore-words-list", "hist,gaus"]
+
+-   repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.8.5
+    hooks:
+    - id: nbqa-pyupgrade
+      additional_dependencies: [pyupgrade==3.14.0]
+    - id: nbqa-isort
+      additional_dependencies: [isort==5.11.4]
+
+-   repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-format
+        args: [-i, '--style=file:.clang-format', '--no-diff']
