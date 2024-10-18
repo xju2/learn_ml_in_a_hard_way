@@ -5,8 +5,6 @@ h5py
 pandas
 tables
 tqdm
-torch
-lightning
 click
 --extra-index-url=https://pypi.nvidia.com
 cuml-cu12==24.4.*
