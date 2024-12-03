@@ -43,7 +43,7 @@ std::vector<std::vector<int>> get_simple_path(Graph& G)
     std::cout << "Found " << num_components << " components." << std::endl;
 
     std::map<int, std::vector<Vertex>> component_groups;
-    for(size_t i = 0; i < num_components; ++i) {
+    for(size_t i = 0; i < component.size(); ++i) {
         component_groups[component[i]].push_back(i);
     }
     for(const auto& [k, sub_graph] : component_groups) {
@@ -183,7 +183,7 @@ typedef boost::graph_traits<Graph>::edge_descriptor EdgeDescriptor;
 struct WeightThresholdPredicate {
     WeightThresholdPredicate(Graph &G, double th_min) : G(G), th_min(th_min) {}
     bool operator()(const EdgeDescriptor &e) const {
-        return boost::get(boost::edge_weight, G, e) < th_min;
+        return boost::get(boost::edge_weight, G, e) <= th_min;
     }
     Graph &G;
     double th_min;
@@ -198,16 +198,23 @@ std::vector<std::vector<int>> get_tracks(
     // remove edges with weight < th_min, using the remove_edge_if function.
     WeightThresholdPredicate predicate(G, th_min);
     remove_edge_if(predicate, G);
-    std::cout << "after moving edges with weight < th_min, number of edges: " << boost::num_edges(G) \
+    std::cout << "after moving edges with weight < " << th_min << ", number of edges: " << boost::num_edges(G) \
       << ", and " << boost::num_vertices(G) << " nodes." << std::endl;
-    // remove isolated vertices
-    std::vector<Vertex> isolated_vertices;
-    BGL_FORALL_VERTICES(v, G, Graph) {
-        if (in_degree(v, G) == 0 && out_degree(v, G) == 0) {
-            isolated_vertices.push_back(v);
+
+    std::vector<std::vector<int>> sub_graphs = get_simple_path(G);
+
+    // Perform topological sort using Boost's topological_sort function
+    // then find non-isolated vertices.
+    std::vector<Vertex> topo_order(num_vertices(G));
+    boost::topological_sort(G, std::back_inserter(topo_order));
+    std::vector<Vertex> non_isolated_vertices;
+    for (auto it = topo_order.begin(); it != topo_order.end(); ++it) {
+        if (in_degree(*it, G) == 0 && out_degree(*it, G) == 0) {
+            continue;
         }
+        non_isolated_vertices.push_back(*it);
     }
-    std::cout << "found " << isolated_vertices.size() << " isolated vertices." << std::endl;
+    std::cout << "Found " << non_isolated_vertices.size() << " non-isolated vertices." << std::endl;
     // // Remove isolated vertices (in reverse order for safety)
     // for (auto it = isolated_vertices.rbegin(); it != isolated_vertices.rend(); ++it) {
     //     remove_vertex(*it, G);
@@ -215,27 +222,22 @@ std::vector<std::vector<int>> get_tracks(
     // std::cout << "after removing isolated vertices, number of edges: " << boost::num_edges(G) \
     //   << ", and " << boost::num_vertices(G) << " nodes." << std::endl;
 
-    std::vector<std::vector<int>> sub_graphs = get_simple_path(G);
-
     std::set<int> used_nodes;
-    // Perform topological sort using Boost's topological_sort function
-    std::vector<Vertex> topo_order;
-    boost::topological_sort(G, std::back_inserter(topo_order));
-
     // Define the next_hit function
     auto next_hit_fn = [&](const Graph &G, int current_hit, const std::set<int> &used_hits) {
         return find_next_hits(G, current_hit, used_hits, th_min, th_add);
     };
 
     // Traverse the nodes in topological order
-    for (auto node_id : topo_order) {
-        if (used_nodes.find(node_id) != used_nodes.end()) {
+    for (auto node_id : non_isolated_vertices) {
+        if (used_nodes.count(node_id) > 0) {
             continue;
         }
 
         // Build roads (tracks) starting from the current node
         auto roads = build_roads(G, node_id, next_hit_fn, used_nodes);
-        if (roads.size() < 3) {
+        if (roads.empty() || roads[0].size() < 3) {
+            used_nodes.insert(node_id);
             continue;
         }
 
@@ -249,13 +251,12 @@ std::vector<std::vector<int>> get_tracks(
             longest_road.pop_back();
         }
 
-        if (longest_road.size() < 3) {
+        if (longest_road.size() >= 3) {
+            sub_graphs.push_back(longest_road);
+            used_nodes.insert(longest_road.begin(), longest_road.end());
+        } else {
             used_nodes.insert(node_id);
-            continue;
         }
-
-        sub_graphs.push_back(longest_road);
-        used_nodes.insert(longest_road.begin(), longest_road.end());
     }
 
     return sub_graphs;
@@ -288,6 +289,7 @@ int main() {
     // Print the results
     std::cout << "Tracks: " << final_tracks.size() << std::endl;
     std::cout << "From ACORN: " << "Number of tracks found by CC: 2950\nNumber of tracks found by Walkthrough: 1294" << std::endl;
+    std::cout << "From ACORN: Total  4244 tracks." << std::endl;
 
     return 0;
 }
