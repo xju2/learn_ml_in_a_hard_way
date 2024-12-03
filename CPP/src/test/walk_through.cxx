@@ -2,6 +2,7 @@
 #include <boost/graph/topological_sort.hpp>
 #include <boost/graph/connected_components.hpp>
 #include <boost/graph/graphviz.hpp>
+#include <boost/graph/graph_utility.hpp>
 #include <iostream>
 #include <vector>
 #include <set>
@@ -14,12 +15,14 @@
 #include <utility>
 
 // Define the graph using Boost's adjacency_list
+typedef boost::property<boost::vertex_name_t, std::string, boost::property < boost::vertex_color_t, float > > vertex_p;
+typedef boost::property<boost::edge_weight_t, double> edge_p;
 typedef boost::adjacency_list<
     boost::vecS, boost::vecS,
     boost::bidirectionalS,
-    boost::no_property,
-    boost::property<boost::edge_weight_t, double>
-    > Graph;
+    vertex_p,
+    edge_p,
+    boost::no_property> Graph;
 typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
 typedef boost::graph_traits<Graph>::edge_descriptor Edge;
 
@@ -231,43 +234,19 @@ std::vector<std::vector<int>> get_tracks(
     return sub_graphs;
 }
 
-// Function to parse the graph from a file with only edge info
-Graph read_graph_from_file(const std::string& filename) {
-    std::ifstream infile(filename, std::ios::in);
-    std::string line;
-
-    // Graph to store the result
-    Graph G;
-
-    // Read the edge information
-    if (std::getline(infile, line)) {
-        // Use regex to extract edges and their scores
-        std::regex edge_regex(R"(\((\d+), (\d+), \{'edge_scores': ([\d\.]+)\}\))");
-        std::smatch match;
-        std::string::const_iterator search_start(line.cbegin());
-
-        // Read edges with scores
-        while (std::regex_search(search_start, line.cend(), match, edge_regex)) {
-            int source = std::stoi(match[1]);
-            int target = std::stoi(match[2]);
-            double score = std::stod(match[3]);
-
-            // Add edge to the graph with the score as the edge weight
-            boost::add_edge(source, target, score, G);
-            search_start = match.suffix().first;
-        }
-    }
-
-    return G;
-}
-
 int main() {
+    // Check boost graph:
+    // https://www.boost.org/doc/libs/1_86_0/libs/graph/doc/table_of_contents.html
     // Create a directed graph (DiGraph) using Boost's adjacency_list
     Graph G;
-    dynamic_properties dp;
-    read_graphviz("graph_data.dot", G, dp);
-
-    Graph G = read_graph_from_file("graph_data.txt");
+    boost::dynamic_properties dp;
+    boost::property_map<Graph, boost::vertex_name_t>::type name = boost::get(boost::vertex_name, G);
+    dp.property("hit_id",name);
+    boost::property_map<Graph, boost::edge_weight_t>::type weight = boost::get(boost::edge_weight, G);
+    dp.property("edge_scores",weight);
+    // copied from /global/cfs/cdirs/m3443/usr/xju/ITk/For2023Paper/metric_learning_testing/debug/debug_graph.dot
+    std::ifstream dot("debug_graph.dot");
+    read_graphviz(dot, G, dp, "hit_id");
 
     // print out how many edges.
     std::cout << "Number of edges: " << boost::num_edges(G) << std::endl;
@@ -283,8 +262,8 @@ int main() {
     final_tracks.insert(final_tracks.end(), walk_tracks.begin(), walk_tracks.end());
 
     // Print the results
-    std::cout << "Tracks (subgraphs): " << tracks.size() << std::endl;
-    for (const auto &track : tracks) {
+    std::cout << "Tracks (subgraphs): " << final_tracks.size() << std::endl;
+    for (const auto &track : final_tracks) {
         for (int node : track) {
             std::cout << node << " ";
         }
