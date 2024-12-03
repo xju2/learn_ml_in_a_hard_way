@@ -17,21 +17,17 @@
 #include <utility>
 
 // Define the graph using Boost's adjacency_list
-typedef boost::property<boost::vertex_name_t, std::string, boost::property < boost::vertex_color_t, float > > vertex_p;
+typedef boost::property<boost::vertex_name_t, std::string,
+    boost::property < boost::vertex_color_t, float > > vertex_p;
 typedef boost::property<boost::edge_weight_t, double> edge_p;
 typedef boost::adjacency_list<
-    boost::listS, boost::vecS,
+    boost::vecS, boost::vecS,
     boost::bidirectionalS,
     vertex_p,
     edge_p,
     boost::no_property> Graph;
 typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
 typedef boost::graph_traits<Graph>::edge_descriptor Edge;
-
-// Helper function to add an edge to the graph
-void add_edge(Graph &G, int u, int v, double score) {
-    boost::add_edge(u, v, score, G);  // score as the edge weight
-}
 
 using vertex_t = int32_t;
 std::vector<std::vector<int>> get_simple_path(Graph& G)
@@ -83,16 +79,20 @@ std::vector<int> find_next_hits(
     double th_add
 ) {
     std::vector<int> next_hits;
-    auto [begin, end] = boost::adjacent_vertices(current_hit, G);
+    std::cout << "current hit: " << current_hit << " " \
+      << in_degree(current_hit, G) << " " << out_degree(current_hit, G) << std::endl;
+    auto [begin, end] = boost::out_edges(current_hit, G);
 
     std::vector<std::pair<int, double>> neighbors_scores;
     for (auto it = begin; it != end; ++it) {
-        int neighbor = *it;
+        int neighbor = target(*it, G);
+        double score = boost::get(boost::edge_weight, G, *it);
+        std::cout << "neighbor of " << current_hit << " -> " << neighbor << ", score: " << score << std::endl;
         if (neighbor == current_hit) continue;
         // print out the neighbor
         // std::cout << "neighbor of " << current_hit << " -> " << neighbor << " ";
         if (used_hits.find(neighbor) == used_hits.end()) {
-            double score = boost::get(boost::edge_weight, G, boost::edge(current_hit, neighbor, G).first);
+
             neighbors_scores.push_back({neighbor, score});
         }
     }
@@ -118,10 +118,10 @@ std::vector<int> find_next_hits(
     if (next_hits.empty()) {
         next_hits.push_back(best_neighbor.first);
     }
-    // // print out the next hits
-    // for (int nh : next_hits) {
-    //     std::cout << nh << " ";
-    // }
+    // print out the next hits
+    for (int nh : next_hits) {
+        std::cout << nh << " ";
+    }
 
     return next_hits;
 }
@@ -169,13 +169,16 @@ std::vector<std::vector<int>> build_roads(
         if (is_all_none) break;
     }
 
-    // // print out the path
-    // for (const auto &pp : path) {
-    //     for (int node : pp) {
-    //         std::cout << node << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    // print out the path
+    std::cout << "path for: " << starting_node << ": " << std::endl;
+    int idx = 0;
+    for (const auto &pp : path) {
+        std::cout << "\t path " << idx++ << ": ";
+        for (int node : pp) {
+            std::cout << node << " ";
+        }
+        std::cout << std::endl;
+    }
     return path;
 }
 
@@ -183,12 +186,18 @@ typedef boost::graph_traits<Graph>::edge_descriptor EdgeDescriptor;
 struct WeightThresholdPredicate {
     WeightThresholdPredicate(Graph &G, double th_min) : G(G), th_min(th_min) {}
     bool operator()(const EdgeDescriptor &e) const {
-        return boost::get(boost::edge_weight, G, e) <= th_min;
+        return boost::get(boost::edge_weight, G, e) < th_min;
     }
     Graph &G;
     double th_min;
 };
 
+void test_graph(const Graph& G){
+    Vertex node_id(14424);
+    std::cout << "node id: " << node_id << " " \
+      << in_degree(node_id, G) << " " << out_degree(node_id, G) << " " << degree(node_id, G) << std::endl;
+    std::cout << "Number of edges: " << boost::num_edges(G) << std::endl;
+}
 // Get tracks using Boost's topological_sort
 std::vector<std::vector<int>> get_tracks(
     Graph &G,
@@ -201,6 +210,7 @@ std::vector<std::vector<int>> get_tracks(
     std::cout << "after moving edges with weight < " << th_min << ", number of edges: " << boost::num_edges(G) \
       << ", and " << boost::num_vertices(G) << " nodes." << std::endl;
 
+    test_graph(G);
     std::vector<std::vector<int>> sub_graphs = get_simple_path(G);
 
     // Perform topological sort using Boost's topological_sort function
@@ -233,9 +243,12 @@ std::vector<std::vector<int>> get_tracks(
         if (used_nodes.count(node_id) > 0) {
             continue;
         }
-
+        node_id = Vertex(14424);
+        std::cout << "node id: " << node_id << " " \
+      << in_degree(node_id, G) << " " << out_degree(node_id, G) << " " << degree(node_id, G) << std::endl;
         // Build roads (tracks) starting from the current node
         auto roads = build_roads(G, node_id, next_hit_fn, used_nodes);
+        break;
         if (roads.empty() || roads[0].size() < 3) {
             used_nodes.insert(node_id);
             continue;
@@ -277,7 +290,7 @@ int main() {
     read_graphviz(dot, G, dp, "hit_id");
 
     // print out how many edges.
-    std::cout << "Number of edges: " << boost::num_edges(G) << std::endl;
+    test_graph(G);
 
     // Define thresholds
     double th_min = 0.1;
