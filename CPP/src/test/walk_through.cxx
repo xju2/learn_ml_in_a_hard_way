@@ -3,6 +3,8 @@
 #include <boost/graph/connected_components.hpp>
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/graph_utility.hpp>
+#include <boost/graph/graph_traits.hpp>
+#include <boost/graph/iteration_macros.hpp>
 #include <iostream>
 #include <vector>
 #include <set>
@@ -18,7 +20,7 @@
 typedef boost::property<boost::vertex_name_t, std::string, boost::property < boost::vertex_color_t, float > > vertex_p;
 typedef boost::property<boost::edge_weight_t, double> edge_p;
 typedef boost::adjacency_list<
-    boost::vecS, boost::vecS,
+    boost::listS, boost::vecS,
     boost::bidirectionalS,
     vertex_p,
     edge_p,
@@ -38,17 +40,17 @@ std::vector<std::vector<int>> get_simple_path(Graph& G)
     // Get weakly connected components
     std::vector<vertex_t> component(num_vertices(G));
     size_t num_components = boost::connected_components(G, &component[0]);
+    std::cout << "Found " << num_components << " components." << std::endl;
 
-    for (size_t i = 0; i < num_components; ++i) {
-        bool is_signal_path = true;
-        std::vector<int> sub_graph;
-
-        // Collect nodes in the current component
-        for (size_t v = 0; v < component.size(); ++v) {
-            if (component[v] == i) {
-                sub_graph.push_back(v);
-            }
+    std::map<int, std::vector<Vertex>> component_groups;
+    for(size_t i = 0; i < num_components; ++i) {
+        component_groups[component[i]].push_back(i);
+    }
+    for(const auto& [k, sub_graph] : component_groups) {
+        if (sub_graph.size() < 3) {
+            continue;
         }
+        bool is_signal_path = true;
         // Check if all nodes in the sub_graph are signal paths
         for (int node : sub_graph) {
             int in_deg = in_degree(node, G);
@@ -65,15 +67,10 @@ std::vector<std::vector<int>> get_simple_path(Graph& G)
             for (int node : sub_graph) {
                 track.push_back(node);
             }
-            if (track.size() > 2) {
-                final_tracks.push_back(track);
-            }
-            // Remove nodes from the graph
-            for (int node : sub_graph) {
-                remove_vertex(node, G);
-            }
+            final_tracks.push_back(track);
         }
     }
+    std::cout << "Found " << final_tracks.size() << " simple paths." << std::endl;
     return final_tracks;
 }
 
@@ -182,15 +179,45 @@ std::vector<std::vector<int>> build_roads(
     return path;
 }
 
+typedef boost::graph_traits<Graph>::edge_descriptor EdgeDescriptor;
+struct WeightThresholdPredicate {
+    WeightThresholdPredicate(Graph &G, double th_min) : G(G), th_min(th_min) {}
+    bool operator()(const EdgeDescriptor &e) const {
+        return boost::get(boost::edge_weight, G, e) < th_min;
+    }
+    Graph &G;
+    double th_min;
+};
+
 // Get tracks using Boost's topological_sort
 std::vector<std::vector<int>> get_tracks(
-    const Graph &G,
+    Graph &G,
     double th_min,
     double th_add
 ) {
-    std::set<int> used_nodes;
-    std::vector<std::vector<int>> sub_graphs;
+    // remove edges with weight < th_min, using the remove_edge_if function.
+    WeightThresholdPredicate predicate(G, th_min);
+    remove_edge_if(predicate, G);
+    std::cout << "after moving edges with weight < th_min, number of edges: " << boost::num_edges(G) \
+      << ", and " << boost::num_vertices(G) << " nodes." << std::endl;
+    // remove isolated vertices
+    std::vector<Vertex> isolated_vertices;
+    BGL_FORALL_VERTICES(v, G, Graph) {
+        if (in_degree(v, G) == 0 && out_degree(v, G) == 0) {
+            isolated_vertices.push_back(v);
+        }
+    }
+    std::cout << "found " << isolated_vertices.size() << " isolated vertices." << std::endl;
+    // // Remove isolated vertices (in reverse order for safety)
+    // for (auto it = isolated_vertices.rbegin(); it != isolated_vertices.rend(); ++it) {
+    //     remove_vertex(*it, G);
+    // }
+    // std::cout << "after removing isolated vertices, number of edges: " << boost::num_edges(G) \
+    //   << ", and " << boost::num_vertices(G) << " nodes." << std::endl;
 
+    std::vector<std::vector<int>> sub_graphs = get_simple_path(G);
+
+    std::set<int> used_nodes;
     // Perform topological sort using Boost's topological_sort function
     std::vector<Vertex> topo_order;
     boost::topological_sort(G, std::back_inserter(topo_order));
@@ -256,19 +283,11 @@ int main() {
     double th_add = 0.6;
 
     // Get tracks (subgraphs)
-    auto final_tracks = get_simple_path(G);
-    auto walk_tracks = get_tracks(G, th_min, th_add);
-
-    final_tracks.insert(final_tracks.end(), walk_tracks.begin(), walk_tracks.end());
+    auto final_tracks = get_tracks(G, th_min, th_add);
 
     // Print the results
-    std::cout << "Tracks (subgraphs): " << final_tracks.size() << std::endl;
-    for (const auto &track : final_tracks) {
-        for (int node : track) {
-            std::cout << node << " ";
-        }
-        std::cout << std::endl;
-    }
+    std::cout << "Tracks: " << final_tracks.size() << std::endl;
+    std::cout << "From ACORN: " << "Number of tracks found by CC: 2950\nNumber of tracks found by Walkthrough: 1294" << std::endl;
 
     return 0;
 }

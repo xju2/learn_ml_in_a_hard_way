@@ -3,7 +3,7 @@
 
 ```bash
 TRITON_IMAGE="docker.io/docexoty/heptools:ubuntu20.04"
-podman-hpc run -it --rm --ipc=host --net=host --ulimit memlock=-1 --ulimit stack=67108864 -v $PWD:$PWD -w $PWD $TRITON_IMAGE bash
+podman-hpc run --gpu -it --rm --ipc=host --net=host --ulimit memlock=-1 --ulimit stack=67108864 -v $PWD:$PWD -w $PWD $TRITON_IMAGE bash
 ```
 # Understanding Value Categories
 
