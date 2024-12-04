@@ -107,8 +107,6 @@ std::vector<int> find_next_hits(
                                           return a.second < b.second;
                                       });
 
-    if (best_neighbor.second <= th_min) return {};
-
     // Add neighbors with score > th_add
     for (const auto &neighbor : neighbors_scores) {
         if (neighbor.second > th_add) {
@@ -286,7 +284,7 @@ std::vector<std::vector<int>> get_tracks(
     for (auto node_id : non_isolated_vertices) {
         // node_id = hit_id_to_vertex.at(14424);
         // Build roads (tracks) starting from the current node
-        auto roads = build_roads(G, node_id, next_hit_fn, used_nodes, all_hit_ids);
+        auto roads = build_roads(newG, node_id, next_hit_fn, used_nodes, all_hit_ids);
         if (roads.empty() || roads[0].size() < 3) {
             used_nodes.insert(node_id);
             continue;
