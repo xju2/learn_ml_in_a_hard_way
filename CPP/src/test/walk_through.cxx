@@ -295,16 +295,11 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
         return find_next_node(G, current_hit, th_min, th_add, all_hit_ids, debug);
     };
 
-    bool debug = true;
+    bool debug = false;
     // Traverse the nodes in topological order
     for(auto it = topo_order.rbegin(); it != topo_order.rend(); ++it) {
         auto node_id = *it;
         int hit_id = boost::get(boost::vertex_name, newG, node_id);
-        if (hit_id == 85245) {
-            debug = true;
-        } else {
-            debug = false;
-        }
         if (debug) {
             std::cout << "node: " << hit_id << " " << used_hits[hit_id] << " " << used_hits[20] << std::endl;
         }
@@ -313,8 +308,8 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
         if (debug) {
             std::cout << "hit: " << hit_id << " " << roads.size();
         }
+        used_hits[hit_id] = true;
         if (roads.empty()) {
-            used_hits[hit_id] = true;
             continue;
         }
 
@@ -336,7 +331,6 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
             }
             sub_graphs.push_back(track);
         }
-        // break;
     }
 
     return sub_graphs;
@@ -392,7 +386,7 @@ int main() {
     // Define thresholds
     double cc_cut = 0.01, th_min = 0.1, th_add = 0.6;
 
-    if (true){
+    if (false){
         auto next_node_fn = [&](const Graph &G, int current_hit, bool debug) {
             return find_next_node(G, current_hit, th_min, th_add, all_hit_ids, debug);
         };
@@ -420,8 +414,8 @@ int main() {
         std::cout << std::endl;
         if (idx > 5) break;
     }
-    std::cout << "From ACORN: " << "Number of tracks found by CC: 2950\nNumber of tracks found by Walkthrough: 1294" << std::endl;
-    std::cout << "From ACORN: Total  4244 tracks." << std::endl;
+    std::cout << "From ACORN: " << "Number of tracks found by CC: 2949\nNumber of tracks found by Walkthrough: 1299" << std::endl;
+    std::cout << "From ACORN: Total  4248 tracks." << std::endl;
     // Write the tracks to a file
     write_tracks(final_tracks, "tracks.txt");
 
