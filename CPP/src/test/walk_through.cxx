@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <functional>
 #include <fstream>
-#include <regex>
 #include <string>
 #include <utility>
 #include <chrono>
@@ -94,7 +93,8 @@ std::vector<int> find_next_node(
         if (debug) {
             std::cout << "\tneighbor of " << all_hit_ids[current_hit] << " -> " << all_hit_ids[neighbor] << ", score: " << score << std::endl;
         }
-        if (neighbor == current_hit || score < th_min) continue;
+        // if (neighbor == current_hit) continue;
+        if (neighbor == current_hit || score <= th_min) continue;
         neighbors_scores.push_back({neighbor, score});
     }
 
@@ -151,7 +151,7 @@ std::vector<std::vector<int>> build_roads(
                 continue;
             }
 
-            auto next_hits = next_node_fn(G, start, false);
+            auto next_hits = next_node_fn(G, start, debug);
             if (debug) {
                 for(int nh : next_hits) {
                     int hit_id = boost::get(boost::vertex_name, G, nh);
@@ -197,7 +197,7 @@ void test_graph(const Graph& G,
             const std::map<int, Vertex>& hit_id_to_vertex,
             const std::vector<int>& all_hit_ids) {
     std::cout <<"Testing Graph: " << boost::num_vertices(G) << " vertices, " << boost::num_edges(G) << " edges." << std::endl;
-    int hit_id = 14424;
+    int hit_id = 14437;
     auto node_id = hit_id_to_vertex.at(hit_id);
     std::cout << "hit id: " << hit_id << " " \
       << in_degree(node_id, G) << " " << out_degree(node_id, G) << " " << std::endl;
@@ -231,7 +231,7 @@ void test_graph(const Graph& G,
 ***/
 }
 // Get tracks using Boost's topological_sort
-std::vector<std::vector<int>> get_tracks(const Graph &G, double th_min, double th_add)
+std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double th_min, double th_add)
 {
     Graph newG;
     std::map<int, bool> used_hits;
@@ -264,7 +264,7 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double th_min, double t
         source = old_vertex_to_new[source];
         target = old_vertex_to_new[target];
         double weight = boost::get(boost::edge_weight, G, *it);
-        if (weight <= th_min) continue; // remove edges with weight <= th_min
+        if (weight <= cc_cut) continue; // remove edges with weight <= th_min
         add_edge(source, target, weight, newG);
     }
     test_graph(newG, hit_id_to_vertex, all_hit_ids);
@@ -283,7 +283,7 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double th_min, double t
             });
     };
     int num_used_hits = count_used_hits(used_hits);
-    std::cout << "Used hits: " << num_used_hits << " after simple path" << std::endl;
+    std::cout << "Used hits: " << num_used_hits << " after simple path. " << used_hits[20] << std::endl;
 
     // Perform topological sort using Boost's topological_sort function
     // then find non-isolated vertices.
@@ -295,36 +295,48 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double th_min, double t
         return find_next_node(G, current_hit, th_min, th_add, all_hit_ids, debug);
     };
 
-    bool debug = false;
+    bool debug = true;
     // Traverse the nodes in topological order
-    for (auto node_id : topo_order) {
-        // node_id = Vertex(hit_id_to_vertex.at(88088));
-
+    for(auto it = topo_order.rbegin(); it != topo_order.rend(); ++it) {
+        auto node_id = *it;
         int hit_id = boost::get(boost::vertex_name, newG, node_id);
-
-        // node_id = hit_id_to_vertex.at(14424);
+        if (hit_id == 85245) {
+            debug = true;
+        } else {
+            debug = false;
+        }
+        if (debug) {
+            std::cout << "node: " << hit_id << " " << used_hits[hit_id] << " " << used_hits[20] << std::endl;
+        }
         // Build roads (tracks) starting from the current node
         auto roads = build_roads(newG, node_id, next_node_fn, used_hits, all_hit_ids, debug);
-        used_hits[hit_id] = true;
+        if (debug) {
+            std::cout << "hit: " << hit_id << " " << roads.size();
+        }
         if (roads.empty()) {
+            used_hits[hit_id] = true;
             continue;
         }
 
         // Find the longest road and remove the last element (-1)
-        std::vector<int> longest_road = *std::max_element(roads.begin(), roads.end(),
+        std::vector<int>& longest_road = *std::max_element(roads.begin(), roads.end(),
             [](const std::vector<int> &a, const std::vector<int> &b) {
                 return a.size() < b.size();
             });
+        if (debug) {
+            std::cout << " with the longest road: " << longest_road.size() << std::endl;
+        }
 
         if (longest_road.size() >= 3) {
             std::vector<int> track;
             for (int node : longest_road) {
-                int hit_id = boost::get(boost::vertex_name, G, node);
+                int hit_id = boost::get(boost::vertex_name, newG, node);
                 used_hits[hit_id] = true;
                 track.push_back(hit_id);
             }
             sub_graphs.push_back(track);
         }
+        // break;
     }
 
     return sub_graphs;
@@ -341,7 +353,7 @@ void write_tracks(const std::vector<std::vector<int>>& tracks, const std::string
         for (int hit_id : track) {
             file << hit_id << " ";
         }
-        file << "-1" << std::endl;
+        file << "-1 ";
     }
 }
 
@@ -378,12 +390,20 @@ int main() {
 
     test_graph(G, hit_id_to_vertex, all_hit_ids);
     // Define thresholds
-    double th_min = 0.1;
-    double th_add = 0.6;
+    double cc_cut = 0.01, th_min = 0.1, th_add = 0.6;
+
+    if (true){
+        auto next_node_fn = [&](const Graph &G, int current_hit, bool debug) {
+            return find_next_node(G, current_hit, th_min, th_add, all_hit_ids, debug);
+        };
+        auto road = build_roads(G, hit_id_to_vertex.at(84564),
+            next_node_fn, used_hits_map, all_hit_ids, true);
+        return 0;
+    }
 
     // Get tracks (subgraphs) and measure the time.
     auto start_time = std::chrono::high_resolution_clock::now();
-    auto final_tracks = get_tracks(G, th_min, th_add);
+    auto final_tracks = get_tracks(G, cc_cut, th_min, th_add);
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_time = end_time - start_time;
     std::cout << "Time taken: " << elapsed_time.count() << "s" << std::endl;
