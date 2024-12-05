@@ -1,4 +1,7 @@
 # some excutables
+find_package(Boost REQUIRED COMPONENTS graph)
+message(STATUS "Boost Libaries: ${Boost_LIBRARIES} ${Boost_INCLUDE_DIRS}")
+
 file(GLOB tools *.cxx)
 foreach(target ${tools})
 	# message(${target})
@@ -9,7 +12,7 @@ foreach(target ${tools})
 	set_target_properties(${execname} PROPERTIES
 		LINKER_LANGUAGE CXX
 		CXX_STANDARD 20)
-	target_link_libraries(${execname} PUBLIC pthread)
+	target_link_libraries(${execname} PUBLIC pthread Boost::graph)
 endforeach()
 
 find_package(Boost REQUIRED COMPONENTS graph)

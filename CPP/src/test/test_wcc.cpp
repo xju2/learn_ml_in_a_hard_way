@@ -13,15 +13,15 @@ int main()
   , boost::undirectedS     // directedness
   , boost::no_property     // property associated with vertices
   , float                  // property associated with edges
-  > Graph; 
+  > Graph;
 
-    int v=6;
+    size_t v=10;
     Graph g(v);
 
     boost::add_edge(0, 1, 1.2, g);
     boost::add_edge(1, 2, 0.2, g);
     boost::add_edge(2, 3, 0.3, g);
-    boost::add_edge(3, 1, 3.4, g);
+    boost::add_edge(7, 3, 0.4, g);
     boost::add_edge(4, 5, 1.1, g);
 
     std::vector<int> component (boost::num_vertices (g));
