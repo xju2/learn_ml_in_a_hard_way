@@ -26,11 +26,19 @@ typedef boost::adjacency_list<
     vertex_p,
     edge_p,
     boost::no_property> Graph;
+
+typedef boost::adjacency_list<
+    boost::vecS, boost::vecS,
+    boost::undirectedS,
+    vertex_p,
+    boost::no_property,
+    boost::no_property> UndirectedGraph;
+
 typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
 typedef boost::graph_traits<Graph>::edge_descriptor Edge;
 using vertex_t = int32_t;
 
-std::vector<std::vector<int>> get_simple_path(const Graph& G)
+std::vector<std::vector<int>> get_simple_path(const UndirectedGraph& G)
 {
     std::vector<std::vector<int>> final_tracks;
     // Get weakly connected components
@@ -38,23 +46,34 @@ std::vector<std::vector<int>> get_simple_path(const Graph& G)
     size_t num_components = boost::connected_components(G, &component[0]);
     std::cout << "Found " << num_components << " components." << std::endl;
 
-    std::map<int, std::vector<Vertex>> component_groups;
+    std::vector<std::vector<Vertex> > component_groups(num_components);
     for(size_t i = 0; i < component.size(); ++i) {
         component_groups[component[i]].push_back(i);
     }
 
     // loop over the sorted groups.
-    for(const auto& [k, sub_graph] : component_groups) {
-        if (sub_graph.size() < 3) {
-            continue;
-        }
+    for(const auto& sub_graph : component_groups) {
         bool is_signal_path = true;
         // Check if all nodes in the sub_graph are signal paths
         for (int node : sub_graph) {
-            if (!(out_degree(node, G) <= 1 && in_degree(node, G) <= 1)) {
+            int hit_id = boost::get(boost::vertex_name, G, node);
+            if (hit_id == 2 || hit_id == 165) {
+                std::cout << "hit id: " << hit_id << " " << out_degree(node, G) \
+                  << " " \
+                  << in_degree(node, G) << " " \
+                  << std::endl;
+                for(auto idx: sub_graph) {
+                    std::cout << " " << boost::get(boost::vertex_name, G, idx);
+                }
+                std::cout << std::endl;
+            }
+            if (degree(node, G) > 2) {
                 is_signal_path = false;
                 break;
             }
+        }
+        if (sub_graph.size() < 3) {
+            continue;
         }
 
         // If it's a signal path, collect the hit_ids
@@ -91,7 +110,12 @@ std::vector<int> find_next_node(
         int neighbor = target(*it, G);
         double score = boost::get(boost::edge_weight, G, *it);
         if (debug) {
-            std::cout << "\tneighbor of " << all_hit_ids[current_hit] << " -> " << all_hit_ids[neighbor] << ", score: " << score << std::endl;
+            std::cout << "\tneighbor of " << all_hit_ids[current_hit] \
+              << " -> " << all_hit_ids[neighbor] \
+              << ", score: " << score \
+              << " out d.: " << out_degree(neighbor, G) \
+              << " in d.: " << in_degree(neighbor, G) \
+              << std::endl;
         }
         // if (neighbor == current_hit) continue;
         if (neighbor == current_hit || score <= th_min) continue;
@@ -195,18 +219,25 @@ std::vector<std::vector<int>> build_roads(
 
 void test_graph(const Graph& G,
             const std::map<int, Vertex>& hit_id_to_vertex,
-            const std::vector<int>& all_hit_ids) {
+            const std::vector<int>& all_hit_ids,
+            int hit_id = 14437
+            ) {
     std::cout <<"Testing Graph: " << boost::num_vertices(G) << " vertices, " << boost::num_edges(G) << " edges." << std::endl;
-    int hit_id = 14437;
     auto node_id = hit_id_to_vertex.at(hit_id);
-    std::cout << "hit id: " << hit_id << " " \
+    std::cout << "hit id: " << hit_id << "(" << node_id << ") " \
       << in_degree(node_id, G) << " " << out_degree(node_id, G) << " " << std::endl;
     auto [begin, end] = boost::out_edges(node_id, G);
 
     for (auto it = begin; it != end; ++it) {
         int neighbor = target(*it, G);
         double score = boost::get(boost::edge_weight, G, *it);
-        std::cout << "neighbor of " << hit_id << " -> " << all_hit_ids[neighbor] << ", score: " << score << std::endl;
+        std::cout << "neighbor of " << hit_id << " -> " << all_hit_ids[neighbor] << "(" << neighbor << "), score: " << score << std::endl;
+    }
+    auto [begin_o, end_o] = boost::in_edges(node_id, G);
+    for (auto it = begin_o; it != end_o; ++it) {
+        int neighbor = source(*it, G);
+        double score = boost::get(boost::edge_weight, G, *it);
+        std::cout << "neighbor of " << hit_id << " <- " << all_hit_ids[neighbor] << "(" << neighbor << "), score: " << score << std::endl;
     }
 /****
     // print the first 5 edges.
@@ -230,13 +261,11 @@ void test_graph(const Graph& G,
     }
 ***/
 }
-// Get tracks using Boost's topological_sort
-std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double th_min, double th_add)
-{
+
+Graph cleanup_graph(const Graph& G, double cc_cut) {
+    // remove fake edges and isolated vertices.
     Graph newG;
-    std::map<int, bool> used_hits;
-    std::map<int, Vertex> hit_id_to_vertex;
-    std::vector<int> all_hit_ids;
+
     // add vertices of G to newG, including the vertex name.
     std::map<int, int> old_vertex_to_new;
     int old_vertex_id = 0;
@@ -248,10 +277,6 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
             continue; // remove isolated vertices.
         }
         add_vertex(name, newG);
-        used_hits[name] = false;
-        hit_id_to_vertex[name] = new_vertex_id;
-        all_hit_ids.push_back(name);
-
         old_vertex_to_new[old_vertex_id] = new_vertex_id;
         new_vertex_id ++;
         old_vertex_id ++;
@@ -264,12 +289,42 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
         source = old_vertex_to_new[source];
         target = old_vertex_to_new[target];
         double weight = boost::get(boost::edge_weight, G, *it);
-        if (weight <= cc_cut) continue; // remove edges with weight <= th_min
+        if (weight <= cc_cut) continue;
         add_edge(source, target, weight, newG);
     }
-    test_graph(newG, hit_id_to_vertex, all_hit_ids);
+    return newG;
+}
 
-    std::vector<std::vector<int>> sub_graphs = get_simple_path(newG);
+// Get tracks using Boost's topological_sort
+std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double th_min, double th_add)
+{
+    Graph newG = cleanup_graph(G, cc_cut);
+    std::map<int, bool> used_hits;
+    std::map<int, Vertex> hit_id_to_vertex;
+    std::vector<int> all_hit_ids;
+    for (auto v : boost::make_iterator_range(vertices(newG))) {
+        auto name = boost::get(boost::vertex_name, newG, v);
+        used_hits[name] = false;
+        hit_id_to_vertex[name] = v;
+        all_hit_ids.push_back(name);
+    }
+    test_graph(newG, hit_id_to_vertex, all_hit_ids, 165);
+
+    UndirectedGraph ugraph;
+    // add vertices from newG to ugraph.
+    for (auto v : boost::make_iterator_range(vertices(newG))) {
+        auto name = boost::get(boost::vertex_name, newG, v);
+        add_vertex(name, ugraph);
+    }
+    // add edges from newG to ugraph.
+    auto [edge_b, edge_e] = boost::edges(newG);
+    for (auto it = edge_b; it != edge_e; ++it) {
+        int source = boost::source(*it, newG);
+        int target = boost::target(*it, newG);
+        add_edge(source, target, ugraph);
+    }
+
+    std::vector<std::vector<int>> sub_graphs = get_simple_path(ugraph);
     // mark the used hits.
     for (const auto& track : sub_graphs) {
         for (int hit_id : track) {
@@ -362,6 +417,9 @@ int main() {
         return 1;
     }
 
+    // Define thresholds
+    double cc_cut = 0.01, th_min = 0.1, th_add = 0.6;
+
     Graph G;
     boost::dynamic_properties dp;
     dp.property("hit_id", boost::get(boost::vertex_name, G));
@@ -371,26 +429,27 @@ int main() {
         std::cerr << "Error: Unable to parse graph from DOT file." << std::endl;
         return 1;
     }
-    // print out how many edges.
-    std::map<int, bool> used_hits_map;
-    std::vector<int> all_hit_ids(boost::num_vertices(G));
-    std::map<int, Vertex> hit_id_to_vertex;
-    for (auto v : boost::make_iterator_range(vertices(G))) {
-        auto hit_id = boost::get(boost::vertex_name, G, v);
-        all_hit_ids[v] = hit_id;
-        used_hits_map[hit_id] = false;
-        hit_id_to_vertex[hit_id] = v;
-    }
-
-    test_graph(G, hit_id_to_vertex, all_hit_ids);
-    // Define thresholds
-    double cc_cut = 0.01, th_min = 0.1, th_add = 0.6;
 
     if (false){
+        Graph newG = cleanup_graph(G, cc_cut);
+
+        // print out how many edges.
+        std::map<int, bool> used_hits_map;
+        std::vector<int> all_hit_ids(boost::num_vertices(newG));
+        std::map<int, Vertex> hit_id_to_vertex;
+        for (auto v : boost::make_iterator_range(vertices(newG))) {
+            auto hit_id = boost::get(boost::vertex_name, newG, v);
+            all_hit_ids[v] = hit_id;
+            used_hits_map[hit_id] = false;
+            hit_id_to_vertex[hit_id] = v;
+        }
+
+        test_graph(newG, hit_id_to_vertex, all_hit_ids, 165);
+
         auto next_node_fn = [&](const Graph &G, int current_hit, bool debug) {
             return find_next_node(G, current_hit, th_min, th_add, all_hit_ids, debug);
         };
-        auto road = build_roads(G, hit_id_to_vertex.at(84564),
+        auto road = build_roads(newG, hit_id_to_vertex.at(2),
             next_node_fn, used_hits_map, all_hit_ids, true);
         return 0;
     }
