@@ -10,10 +10,10 @@ int main()
     boost::adjacency_list<
     boost::vecS            // edge list
   , boost::vecS            // vertex list
-  , boost::undirectedS     // directedness
+  , boost::bidirectionalS     // directedness
   , boost::no_property     // property associated with vertices
   , float                  // property associated with edges
-  > Graph; 
+  > Graph;
 
     int v=6;
     Graph g(v);
@@ -21,7 +21,6 @@ int main()
     boost::add_edge(0, 1, 1.2, g);
     boost::add_edge(1, 2, 0.2, g);
     boost::add_edge(2, 3, 0.3, g);
-    boost::add_edge(3, 1, 3.4, g);
     boost::add_edge(4, 5, 1.1, g);
 
     std::vector<int> component (boost::num_vertices (g));
