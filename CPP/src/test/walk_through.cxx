@@ -18,7 +18,7 @@
 #include <chrono>
 
 // Define the graph using Boost's adjacency_list
-typedef boost::property<boost::vertex_name_t, int > vertex_p;
+typedef boost::property<boost::vertex_name_t, int64_t > vertex_p;
 typedef boost::property<boost::edge_weight_t, double> edge_p;
 typedef boost::adjacency_list<
     boost::vecS, boost::vecS,
@@ -38,6 +38,13 @@ typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
 typedef boost::graph_traits<Graph>::edge_descriptor Edge;
 using vertex_t = int32_t;
 
+void print_track(const std::vector<int>& track) {
+    for (int hit_id : track) {
+        std::cout << hit_id << " ";
+    }
+    std::cout << std::endl;
+}
+
 std::vector<std::vector<int>> get_simple_path(const UndirectedGraph& G)
 {
     std::vector<std::vector<int>> final_tracks;
@@ -53,11 +60,14 @@ std::vector<std::vector<int>> get_simple_path(const UndirectedGraph& G)
 
     // loop over the sorted groups.
     for(const auto& sub_graph : component_groups) {
+        if (sub_graph.size() < 3) {
+            continue;
+        }
         bool is_signal_path = true;
         // Check if all nodes in the sub_graph are signal paths
         for (int node : sub_graph) {
             int hit_id = boost::get(boost::vertex_name, G, node);
-            if (hit_id == 2 || hit_id == 165) {
+            if (hit_id == 2 || hit_id == 3934) {
                 std::cout << "hit id: " << hit_id << " " << out_degree(node, G) \
                   << " " \
                   << in_degree(node, G) << " " \
@@ -71,9 +81,6 @@ std::vector<std::vector<int>> get_simple_path(const UndirectedGraph& G)
                 is_signal_path = false;
                 break;
             }
-        }
-        if (sub_graph.size() < 3) {
-            continue;
         }
 
         // If it's a signal path, collect the hit_ids
@@ -150,7 +157,7 @@ std::vector<std::vector<int>> build_roads(
     const Graph &G,
     int starting_node,
     std::function<std::vector<int>(const Graph&, int, bool)> next_node_fn,
-    std::map<int, bool>& used_hits, const std::vector<int>& all_hit_ids,
+    std::map<int64_t, bool>& used_hits, const std::vector<int>& all_hit_ids,
     bool debug = false
 ) {
     std::vector<std::vector<int>> path = {{starting_node}};
@@ -179,7 +186,7 @@ std::vector<std::vector<int>> build_roads(
             if (debug) {
                 for(int nh : next_hits) {
                     int hit_id = boost::get(boost::vertex_name, G, nh);
-                    std::cout << "\t\tnext hit: " << hit_id << " " << used_hits[hit_id] << std::endl;
+                    std::cout << "\t\tnext hit: " << hit_id << "(" << nh << ") " << used_hits[hit_id] << std::endl;
                 }
             }
             // remove used hits.
@@ -299,7 +306,7 @@ Graph cleanup_graph(const Graph& G, double cc_cut) {
 std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double th_min, double th_add)
 {
     Graph newG = cleanup_graph(G, cc_cut);
-    std::map<int, bool> used_hits;
+    std::map<int64_t, bool> used_hits;
     std::map<int, Vertex> hit_id_to_vertex;
     std::vector<int> all_hit_ids;
     for (auto v : boost::make_iterator_range(vertices(newG))) {
@@ -329,11 +336,14 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
     for (const auto& track : sub_graphs) {
         for (int hit_id : track) {
             used_hits[hit_id] = true;
+            if (hit_id == 3934) {
+                print_track(track);
+            }
         }
     }
-    auto count_used_hits = [](const std::map<int, bool>& used_hits) {
+    auto count_used_hits = [](const std::map<int64_t, bool>& used_hits) {
         return std::count_if(used_hits.begin(), used_hits.end(),
-            [](const std::pair<int, bool>& p) {
+            [](const std::pair<int64_t, bool>& p) {
                 return p.second;
             });
     };
@@ -355,8 +365,11 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
     for(auto it = topo_order.rbegin(); it != topo_order.rend(); ++it) {
         auto node_id = *it;
         int hit_id = boost::get(boost::vertex_name, newG, node_id);
+        if (used_hits[hit_id]) continue;
+        if(hit_id == 4532 || hit_id == 83363) debug = true;
+        else debug = false;
         if (debug) {
-            std::cout << "node: " << hit_id << " " << used_hits[hit_id] << " " << used_hits[20] << std::endl;
+            std::cout << "node: " << hit_id << "(" << node_id << ") " << used_hits[hit_id] << std::endl;
         }
         // Build roads (tracks) starting from the current node
         auto roads = build_roads(newG, node_id, next_node_fn, used_hits, all_hit_ids, debug);
@@ -434,7 +447,7 @@ int main() {
         Graph newG = cleanup_graph(G, cc_cut);
 
         // print out how many edges.
-        std::map<int, bool> used_hits_map;
+        std::map<int64_t, bool> used_hits_map;
         std::vector<int> all_hit_ids(boost::num_vertices(newG));
         std::map<int, Vertex> hit_id_to_vertex;
         for (auto v : boost::make_iterator_range(vertices(newG))) {
@@ -444,12 +457,12 @@ int main() {
             hit_id_to_vertex[hit_id] = v;
         }
 
-        test_graph(newG, hit_id_to_vertex, all_hit_ids, 165);
+        test_graph(newG, hit_id_to_vertex, all_hit_ids, 83363);
 
         auto next_node_fn = [&](const Graph &G, int current_hit, bool debug) {
             return find_next_node(G, current_hit, th_min, th_add, all_hit_ids, debug);
         };
-        auto road = build_roads(newG, hit_id_to_vertex.at(2),
+        auto road = build_roads(newG, hit_id_to_vertex.at(4532),
             next_node_fn, used_hits_map, all_hit_ids, true);
         return 0;
     }
