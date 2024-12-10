@@ -14,4 +14,5 @@ add_compile_options(-fPIC)
 add_compile_options(-pedantic)
 # add_compile_options(-Wgnu-zero-variadic-macro-arguments)
 
+add_subdirectory(pybinding)
 add_subdirectory(test)
