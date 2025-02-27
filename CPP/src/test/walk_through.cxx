@@ -66,6 +66,7 @@ std::vector<std::vector<int>> get_simple_path(const UndirectedGraph& G)
         bool is_signal_path = true;
         // Check if all nodes in the sub_graph are signal paths
         for (int node : sub_graph) {
+            /****
             int hit_id = boost::get(boost::vertex_name, G, node);
             if (hit_id == 2 || hit_id == 3934) {
                 std::cout << "hit id: " << hit_id << " " << out_degree(node, G) \
@@ -77,6 +78,7 @@ std::vector<std::vector<int>> get_simple_path(const UndirectedGraph& G)
                 }
                 std::cout << std::endl;
             }
+            ****/
             if (degree(node, G) > 2) {
                 is_signal_path = false;
                 break;
@@ -348,7 +350,9 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
             });
     };
     int num_used_hits = count_used_hits(used_hits);
-    std::cout << "Used hits: " << num_used_hits << " after simple path. " << used_hits[20] << std::endl;
+    std::cout << "Used hits: " << num_used_hits << " after simple path. " << std::endl;
+    int num_simple_paths = sub_graphs.size();
+    std::cout << "From CC&&Walk: Number of tracks found by CC: " << num_simple_paths << std::endl;
 
     // Perform topological sort using Boost's topological_sort function
     // then find non-isolated vertices.
@@ -366,8 +370,8 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
         auto node_id = *it;
         int hit_id = boost::get(boost::vertex_name, newG, node_id);
         if (used_hits[hit_id]) continue;
-        if(hit_id == 4532 || hit_id == 83363) debug = true;
-        else debug = false;
+        // if(hit_id == 4532 || hit_id == 83363) debug = true;
+        // else debug = false;
         if (debug) {
             std::cout << "node: " << hit_id << "(" << node_id << ") " << used_hits[hit_id] << std::endl;
         }
@@ -392,6 +396,7 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
 
         if (longest_road.size() >= 3) {
             std::vector<int> track;
+            track.reserve(longest_road.size());
             for (int node : longest_road) {
                 int hit_id = boost::get(boost::vertex_name, newG, node);
                 used_hits[hit_id] = true;
@@ -400,7 +405,7 @@ std::vector<std::vector<int>> get_tracks(const Graph &G, double cc_cut, double t
             sub_graphs.push_back(track);
         }
     }
-
+    std::cout << "From CC&&Walk: Number of tracks found by Walkthrough: " << sub_graphs.size() - num_simple_paths << std::endl;
     return sub_graphs;
 }
 
@@ -443,7 +448,8 @@ int main() {
         return 1;
     }
 
-    if (false){
+    bool debug = false;
+    if (debug){
         Graph newG = cleanup_graph(G, cc_cut);
 
         // print out how many edges.
@@ -471,21 +477,21 @@ int main() {
     auto start_time = std::chrono::high_resolution_clock::now();
     auto final_tracks = get_tracks(G, cc_cut, th_min, th_add);
     auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_time = end_time - start_time;
-    std::cout << "Time taken: " << elapsed_time.count() << "s" << std::endl;
+    std::chrono::duration<double, std::milli> elapsed_time = end_time - start_time;
 
     // Print the results
-    std::cout << "Tracks: " << final_tracks.size() << std::endl;
-    // print 5 tracks.
-    int idx = 0;
-    for (const auto &track : final_tracks) {
-        std::cout << "Track " << idx++ << ": ";
-        for (int hit_id : track) {
-            std::cout << hit_id << " ";
-        }
-        std::cout << std::endl;
-        if (idx > 5) break;
-    }
+    std::cout << "From CC&&Walk:: Total " << final_tracks.size() <<  " tracks" << std::endl;
+    std::cout << "Time taken: " << elapsed_time.count() << " ms" << std::endl;
+    // // print 5 tracks.
+    // int idx = 0;
+    // for (const auto &track : final_tracks) {
+    //     std::cout << "Track " << idx++ << ": ";
+    //     for (int hit_id : track) {
+    //         std::cout << hit_id << " ";
+    //     }
+    //     std::cout << std::endl;
+    //     if (idx > 5) break;
+    // }
     std::cout << "From ACORN: " << "Number of tracks found by CC: 2949\nNumber of tracks found by Walkthrough: 1299" << std::endl;
     std::cout << "From ACORN: Total  4248 tracks." << std::endl;
     // Write the tracks to a file
